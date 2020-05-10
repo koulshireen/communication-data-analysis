@@ -58,5 +58,6 @@ def word_net_stress_score(text):
 
 
 def stress_score_group_by_participants(df):
+    df = df[['Participants', 'Aggregated Stress Score']]
     df = df.loc[df['Aggregated Stress Score'] < 0].groupby(['Participants'], sort=True).sum()
     return df

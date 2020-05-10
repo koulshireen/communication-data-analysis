@@ -1,12 +1,17 @@
 import enum
 import os
 from fnmatch import fnmatch
+from statistics import mean
 
 import pandas as pd
+import logging as log
 
 from src.PreProcessing import pre_process_text
 from src.StressScore import word_net_stress_score
 from src.utils.DateTimeUtils import convert_string_date, off_working_hours_deviation
+
+max_pos_score_weight = 1.5
+max_neg_score_weight = 1.5
 
 
 class CommType(enum.Enum):
@@ -15,6 +20,7 @@ class CommType(enum.Enum):
 
 
 def load_html_files_data(file_path, comm_type):
+    log.info("-------HTML Parsing Initiated-------")
     col_names = ['File Name', 'From', 'Participants', 'Date', 'Text', 'Net Linguistic Stress Score',
                  'Max Pos Stress Score', 'Max Neg Stress Score', 'Off-Work Stress Score', 'Aggregated Stress Score']
     df = pd.DataFrame(columns=col_names)
@@ -52,14 +58,32 @@ def load_html_files_data(file_path, comm_type):
                         date_tag = parsed_html.body.find('div', attrs={'class': 'content'}).b.next_sibling
                     cleaned_text = pre_process_text(body_tag)
                     date = convert_string_date(date_tag)
-                    net_linguistic_stress_score, max_pos_stress_score, max_neg_stress_score = word_net_stress_score(cleaned_text)
+                    try:
+                        net_linguistic_stress_score, max_pos_stress_score, max_neg_stress_score = word_net_stress_score(cleaned_text)
+                    except TypeError:
+                        net_linguistic_stress_score, max_pos_stress_score, max_neg_stress_score = 0, 0, 0
+
                     off_working_hours_score = off_working_hours_deviation(date)
-                    aggregated_stress = net_linguistic_stress_score if off_working_hours_score == 0 else (
-                                                                                                             off_working_hours_score + net_linguistic_stress_score) / 2.0
+
+                    if max_neg_stress_score != 0:
+                        max_neg_stress_score = -max_neg_stress_score
+
+                    weighted_max_pos_score = max_pos_score_weight * max_pos_stress_score
+                    weighted_max_neg_score = max_neg_score_weight * max_neg_stress_score
+
+                    if off_working_hours_score == 0:
+                        aggregated_stress = mean([net_linguistic_stress_score, weighted_max_pos_score,
+                                                  weighted_max_neg_score])
+                    else:
+                        aggregated_stress = mean(
+                            [net_linguistic_stress_score, weighted_max_pos_score, weighted_max_neg_score,
+                             off_working_hours_score])
+
                     df.loc[len(df)] = [name, from_tag, participants_tag, date, body_tag, net_linguistic_stress_score,
                                        max_pos_stress_score, max_neg_stress_score, off_working_hours_score, aggregated_stress]
                 except Exception as e:
                     print(e)
                 finally:
                     chat_file.close()
+    log.info("-------HTML Parsing Finished-------")
     return df

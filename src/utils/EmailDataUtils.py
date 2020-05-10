@@ -1,15 +1,20 @@
 import email
 import os
 from fnmatch import fnmatch
+from statistics import mean
 
 import pandas as pd
 
 from src.PreProcessing import pre_process_text
 from src.StressScore import word_net_stress_score
 from src.utils.DateTimeUtils import convert_string_date, off_working_hours_deviation
+import logging as log
 
+max_pos_score_weight = 1.5
+max_neg_score_weight = 1.5
 
 def load_email_files_data(file_path):
+    log.info("-------Email Parsing Initiated-------")
     col_names = ['File Name', 'Participants', 'To', 'Date', 'Text', 'Net Linguistic Stress Score',
                  'Max Pos Stress Score', 'Max Neg Stress Score', 'Off-Work Stress Score',
                  'Aggregated Stress Score']
@@ -33,18 +38,34 @@ def load_email_files_data(file_path):
                         date_tag = email_msg.get("Date")
                     cleaned_text = pre_process_text(body_tag)
                     date = convert_string_date(date_tag)
-                    net_linguistic_stress_score, max_pos_stress_score, max_neg_stress_score = word_net_stress_score(
-                        cleaned_text)
+                    try:
+                        net_linguistic_stress_score, max_pos_stress_score, max_neg_stress_score = word_net_stress_score(cleaned_text)
+                    except TypeError:
+                        net_linguistic_stress_score, max_pos_stress_score, max_neg_stress_score = 0, 0, 0
                     off_working_hours_score = off_working_hours_deviation(date)
-                    aggregated_stress = net_linguistic_stress_score if off_working_hours_score == 0 else (
-                                                                                                                 off_working_hours_score + net_linguistic_stress_score) / 2.0
+
+                    if max_neg_stress_score != 0:
+                        max_neg_stress_score = -max_neg_stress_score
+
+                    weighted_max_pos_score = max_pos_score_weight * max_pos_stress_score
+                    weighted_max_neg_score = max_neg_score_weight * max_neg_stress_score
+
+                    if off_working_hours_score == 0:
+                        aggregated_stress = mean([net_linguistic_stress_score, weighted_max_pos_score,
+                                                  weighted_max_neg_score])
+                    else:
+                        aggregated_stress = mean(
+                            [net_linguistic_stress_score, weighted_max_pos_score, weighted_max_neg_score,
+                             off_working_hours_score])
+
                     participants_tag = ';'.join([p for p in (from_tag, to_tag) if p])
                     dirname = path.split(os.path.sep)[-1] + "//" + name
                     df.loc[len(df)] = [dirname, participants_tag, to_tag, date, cleaned_text,
                                        net_linguistic_stress_score, max_pos_stress_score, max_neg_stress_score,
                                        off_working_hours_score, aggregated_stress]
                 except Exception as e:
-                    print(e)
+                    print()
                 finally:
                     chat_file.close()
+    log.info("-------Email Parsing Finished-------")
     return df

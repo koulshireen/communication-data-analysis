@@ -60,6 +60,9 @@ def plotGraph(df, graphFilePath):
     fig, graph = plt.subplots()
     graph.plot(df["File Name"], df["Net Linguistic Stress Score"], marker="o")
     graph.set_xlabel("File Name")
+    graph.axes.get_xaxis().set_visible(False)
     graph.set_ylabel("Net stress")
     graph.plot(df["File Name"], df["Off-Work Stress Score"], marker="o")
     plt.savefig(graphFilePath)
+    graph.axes.get_xaxis().set_visible(False)
+
