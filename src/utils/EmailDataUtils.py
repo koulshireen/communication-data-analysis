@@ -64,7 +64,7 @@ def load_email_files_data(file_path):
                                        net_linguistic_stress_score, max_pos_stress_score, max_neg_stress_score,
                                        off_working_hours_score, aggregated_stress]
                 except Exception as e:
-                    print()
+                    print('Unusual text parsing cases handled')
                 finally:
                     chat_file.close()
     log.info("-------Email Parsing Finished-------")

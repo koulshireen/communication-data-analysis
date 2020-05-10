@@ -41,7 +41,6 @@ def load_html_files_data(file_path, comm_type):
                         for text_tag in text_tags:
                             body_tag += text_tag.text
                         from_tag = parsed_html.body.find('span', attrs={'class': 'author'}).text
-                        # Not complete participants_tag
                         participants_tag = parsed_html.body.find('div', attrs={'class': 'participants'}).find('span',
                                                                                                               attrs={
                                                                                                                   'class': 'person'}).next_sibling.next_sibling.text + " ; " + from_tag
